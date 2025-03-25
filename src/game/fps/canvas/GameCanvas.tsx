@@ -167,17 +167,6 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
           </Ecctrl>
         </KeyboardControls>
       </Physics>
-      <EffectComposer>
-        <LUT lut={lutTexture} blendFunction={BlendFunction.ADD} />
-
-        <Noise
-          premultiply
-          blendFunction={BlendFunction.OVERLAY}
-          opacity={0.1}
-        />
-        <Vignette darkness={0.5} offset={0.1} />
-        <DepthOfField focusDistance={0.01} focalLength={0.2} bokehScale={3} />
-      </EffectComposer>
       <EffectSystem scopeId="game" />
     </Canvas>
   );

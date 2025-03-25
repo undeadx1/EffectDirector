@@ -17,7 +17,6 @@ import { SpriteSheetEffect } from '@/game/fps/effect/SpriteSheetEffect';
 import { ShaderEffect } from '@/game/fps/effect/ShaderEffect';
 import { useFrame } from '@react-three/fiber';
 import { calculateSurfaceRotation } from './EffectUtils';
-import { fragmentShader, vertexShader } from './shaders/noiseEffect';
 
 export const MuzzleFlashEffect: React.FC<{ position: Vector3 }> = ({
   position,
@@ -333,6 +332,14 @@ export const FireEffect: React.FC<{
         gl_FragColor = noiseColor;
     }`;
 
+  const vertexShader = /* glsl */ `
+    varying vec2 vUv;
+
+    void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`;
+
   // scale이 Vector3로 전달되면 첫 번째 값을 사용
   const scaleValue = scale instanceof Vector3 ? scale.x : 1;
 
@@ -342,13 +349,10 @@ export const FireEffect: React.FC<{
       vertexShader={vertexShader}
       fragmentShader={fireFragmentShader}
       scale={scaleValue}
-      color={new Color(1, 0.5, 0)}
+      color={new Color(1, 1, 1)}
       duration={2000}
-      blending={NormalBlending}
+      blending={AdditiveBlending}
       fadeOut
-      rotation={
-        rotation ? new Euler(rotation.x, rotation.y, rotation.z) : undefined
-      }
       normal={normal}
       disableBillboard={disableBillboard}
       uniforms={{
