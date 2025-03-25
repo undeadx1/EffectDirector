@@ -36,144 +36,11 @@ const withLocalPlaying = (WrappedComponent: any) => {
     // ======== 참조 및 상태 관리 ========
     const prevHpRef = useRef<number | null>(null);
     const playerBaseRef = useRef<PlayerBase | null>(null);
-    const prevState = useRef({
-      action: FpsCharacterActionType.AIM,
-      position: new Vector3(),
-      rotation: new Quaternion(),
-      verticalAim: -Math.PI,
-    });
 
     // 플레이어 인스턴스 접근 함수
     const getPlayerInstance = () => {
       return playerBaseRef.current;
     };
-
-    // ======== 네트워크 동기화 기능 ========
-    /**
-     * 네트워크 동기화 함수 (변경사항 감지 및 전송)
-     */
-    const syncToNetwork = useCallback(
-      (
-        position: Vector3,
-        rotation: Quaternion,
-        action: FpsCharacterActionType,
-        verticalAim: number
-      ) => {
-        // 변경사항 감지 (최소 임계값 이상만 전송)
-        const positionDiff = position.distanceTo(prevState.current.position);
-        const rotationDiff = rotation.angleTo(prevState.current.rotation);
-        const actionDiff = action !== prevState.current.action;
-        const verticalAimDiff = Math.abs(
-          verticalAim - prevState.current.verticalAim
-        );
-        // 변화가 너무 작으면 스킵
-        if (
-          !actionDiff &&
-          positionDiff < NETWORK_CONSTANTS.SYNC.POSITION_CHANGE_THRESHOLD &&
-          rotationDiff < NETWORK_CONSTANTS.SYNC.ROTATION_CHANGE_THRESHOLD &&
-          verticalAimDiff < NETWORK_CONSTANTS.SYNC.VERTICAL_AIM_CHANGE_THRESHOLD
-        )
-          return;
-
-        // 변경사항이 있으면 스로틀링된 함수 호출
-        throttledSyncToNetwork(position, rotation, action, verticalAim);
-
-        // 이전 상태 업데이트
-        prevState.current = {
-          action,
-          position: position.clone(),
-          rotation: rotation.clone(),
-          verticalAim: verticalAim,
-        };
-      },
-      []
-    );
-
-    /**
-     * 실제 서버 전송 함수 (스로틀링 적용)
-     */
-    const throttledSyncToNetwork = useMemo(
-      () =>
-        throttle(
-          (
-            position: Vector3,
-            rotation: Quaternion,
-            action: FpsCharacterActionType,
-            verticalAim: number
-          ) => {
-            updateCharacterState({
-              transform: {
-                position: [position.x, position.y, position.z],
-                rotation: [rotation.x, rotation.y, rotation.z, rotation.w],
-              },
-              currentAction: action,
-              isGrounded: true,
-              verticalAim: verticalAim,
-            });
-          },
-          NETWORK_CONSTANTS.SYNC.INTERVAL_MS,
-          { trailing: true }
-        ),
-      [updateCharacterState]
-    );
-
-    // ======== 플레이어 상태 업데이트 (프레임별) ========
-    useFrame(() => {
-      if (!props.rigidBodyRef?.current || !account) return;
-
-      // 속도 기반 움직임 감지
-      const velocity = props.rigidBodyRef.current.linvel();
-      const horizontalSpeed = Math.sqrt(
-        velocity.x * velocity.x + velocity.z * velocity.z
-      );
-      const isMoving = horizontalSpeed > 0.5;
-
-      // 상태에 따른 액션 결정
-      let nextAction: FpsCharacterActionType;
-      if (getPlayerInstance()?.isAlive) {
-        if (isMoving) {
-          nextAction = FpsCharacterActionType.RUN;
-        } else {
-          nextAction = FpsCharacterActionType.IDLE;
-        }
-      } else {
-        nextAction = FpsCharacterActionType.DIE;
-      }
-
-      if (getPlayerInstance()?.IsShooting()) {
-        nextAction = FpsCharacterActionType.SHOOT;
-      }
-
-      // 현재 transform 정보 가져오기
-      const currentPosition = new Vector3().copy(
-        props.rigidBodyRef.current.translation()
-      );
-      const rotation = props.rigidBodyRef.current.rotation();
-      const currentRotation = new Quaternion(
-        rotation.x,
-        rotation.y,
-        rotation.z,
-        rotation.w
-      );
-
-      // 카메라 방향 벡터 구하기
-      const cameraDirection = new Vector3();
-      camera.getWorldDirection(cameraDirection);
-
-      // 수직 각도 계산 (y 성분이 상하 방향)
-      let verticalAngle = Math.asin(-cameraDirection.y);
-
-      if (getPlayerInstance()?.isAlive == false) {
-        verticalAngle = 0;
-      }
-      // 네트워크 동기화
-      syncToNetwork(
-        currentPosition,
-        currentRotation,
-        nextAction,
-        verticalAngle
-      );
-    });
 
     // ======== 초기화 및 설정 ========
     // 초기 위치 설정 및 서버 동기화
@@ -298,9 +165,6 @@ const withLocalPlaying = (WrappedComponent: any) => {
       // 무기 변경 이벤트 발생
       dispatchGameEvent(FPS_GAME_EVENTS.WEAPON_CHANGE_EVENT, { weaponType });
 
-      // 네트워크를 통해 다른 플레이어들에게 무기 변경 정보 전송
-      updateWeaponType(weaponType);
-
       console.log(`무기 변경: ${weaponType}`);
     };
 
@@ -382,7 +246,7 @@ class PlayerBase extends EntityBase {
 
     this.initCamera(props.cameraContext);
     console.log('scene', this.props.scene);
-    this.props.scene.visible = true;
+    this.props.scene.visible = false;
 
     // 기본 무기 설정
     this.currentWeaponType = WEAPON.AK47;

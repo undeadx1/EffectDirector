@@ -11,6 +11,7 @@ import { FPS_GAME_CONSTANTS } from '@/game/fps/constants/game.constants';
 import { useEffectStore } from '../store/useEffectStore';
 import {
   BulletHole,
+  FireEffect,
   SparkEffect,
   TexturedLaserBeam,
 } from '../effect/EffectComponents';
@@ -248,15 +249,10 @@ class ShootingSystem {
     if (isEntityBase) {
       // console.log('Hit an EntityBase object - applying character hit effect');
     } else {
-      useEffectStore.getState().addEffect(BulletHole, position, {
+      // 벽에 붙일 때 사용
+      useEffectStore.getState().addEffect(FireEffect, position, {
         normal: normal,
-        duration: 5000,
-        scopeId: 'game',
-      });
-
-      useEffectStore.getState().addEffect(SparkEffect, position, {
-        normal: normal,
-        duration: 200,
+        duration: 2000,
         scopeId: 'game',
       });
     }

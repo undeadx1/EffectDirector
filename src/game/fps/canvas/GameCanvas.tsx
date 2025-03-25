@@ -28,6 +28,7 @@ import {
 } from '@/game/fps/types/fps';
 import { FPS_CHARACTER_CONSTANTS } from '@/game/fps/constants/characterConstants';
 import { getRandomCorner } from '../environment/mapUtils';
+import { CustomShaderEffect } from '@/game/fps/effect/CustomShaderEffect';
 
 const keyboardMap = [
   { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
@@ -143,7 +144,7 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
             ref={playerEcctrlRef}
             disableFollowCam={false}
             camZoomSpeed={2}
-            camCollision={true}
+            camCollision={false}
             camInitDis={0.01}
             camMinDis={0.01}
             camFollowMult={10000}
@@ -169,12 +170,6 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
       <EffectComposer>
         <LUT lut={lutTexture} blendFunction={BlendFunction.ADD} />
 
-        <ChromaticAberration
-          blendFunction={BlendFunction.NORMAL}
-          offset={new Vector2(0.0001, 0.0001)}
-          radialModulation={true}
-          modulationOffset={0}
-        />
         <Noise
           premultiply
           blendFunction={BlendFunction.OVERLAY}

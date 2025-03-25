@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import {
   AdditiveBlending,
   NormalBlending,
@@ -10,11 +10,14 @@ import {
   TextureLoader,
   Object3D,
   RepeatWrapping,
+  Vector2,
 } from 'three';
 import * as THREE from 'three';
 import { SpriteSheetEffect } from '@/game/fps/effect/SpriteSheetEffect';
+import { ShaderEffect } from '@/game/fps/effect/ShaderEffect';
 import { useFrame } from '@react-three/fiber';
 import { calculateSurfaceRotation } from './EffectUtils';
+import { fragmentShader, vertexShader } from './shaders/noiseEffect';
 
 export const MuzzleFlashEffect: React.FC<{ position: Vector3 }> = ({
   position,
@@ -245,6 +248,114 @@ export const SparkEffect: React.FC<{ position: Vector3 }> = ({ position }) => {
       blending={AdditiveBlending}
       scaleAnimation={{ start: 1, mid: 0, end: 0 }}
       opacityAnimation={{ start: 1, mid: 0, end: 0 }}
+    />
+  );
+};
+
+export const FireEffect: React.FC<{
+  position: Vector3;
+  rotation?: Vector3;
+  scale?: Vector3;
+  normal?: Vector3;
+  hitObject?: Object3D;
+  disableBillboard?: boolean;
+}> = ({
+  position,
+  rotation,
+  scale,
+  normal,
+  hitObject,
+  disableBillboard = false,
+}) => {
+  // 불 효과를 위한 커스텀 프래그먼트 셰이더
+  const fireFragmentShader = /* glsl */ ` 
+    uniform vec2 resolution;
+    uniform float time;
+    varying vec2 vUv;
+
+    float customSnoise(vec3 uv, float res)
+    {
+        const vec3 s = vec3(1e0, 1e2, 1e3);
+        
+        uv *= res;
+        
+        vec3 uv0 = floor(mod(uv, res))*s;
+        vec3 uv1 = floor(mod(uv+vec3(1.), res))*s;
+        
+        vec3 f = fract(uv); f = f*f*(3.0-2.0*f); 
+
+        vec4 v = vec4(uv0.x+uv0.y+uv0.z, uv1.x+uv0.y+uv0.z,
+                      uv0.x+uv1.y+uv0.z, uv1.x+uv1.y+uv0.z);
+
+        vec4 r = fract(sin(v*1e-1)*1e3);
+        float r0 = mix(mix(r.x, r.y, f.x), mix(r.z, r.w, f.x), f.y);
+        
+        r = fract(sin((v + uv1.z - uv0.z)*1e-1)*1e3);
+        float r1 = mix(mix(r.x, r.y, f.x), mix(r.z, r.w, f.x), f.y);
+        
+        return mix(r0, r1, f.z)*2.-1.;
+    }
+
+    void main()
+    { 
+        // 중심을 향하도록 좌표 조정 (0.5, 0.5가 중심) 
+        vec2 p = vUv - 0.5;
+       
+             
+        // 효과 크기를 더 작게 조정 (숫자를 키워서 효과 크기를 줄임)
+        float color = 3.0 - (3.*length(3.0*p));
+        
+        vec3 coord = vec3(atan(p.x,p.y)/6.2832+.5, length(p)*.4, .5);
+        
+        // 시간에 따른 움직임 추가
+        float t = time; // 시간 속도 조절 
+        coord += vec3(0., -t * 0.05, t * 0.01);
+        
+        for(int i = 1; i <= 7; i++)
+        {
+            float power = pow(2.0, float(i));
+            color += (1.5 / power) * customSnoise(coord, power*16.);
+        }
+
+        // 불 효과를 위한 색상 조정
+        vec4 noiseColor = vec4(
+            color * 1.5,                    // R
+            pow(max(color,0.),2.)*0.4,      // G
+            pow(max(color,0.),3.)*0.15,     // B
+            1.0                            // A (알파 채널) - 기본적으로 불투명
+        );
+        
+        // 검은색(음수) 부분만 투명하게 
+        if (color < 0.0) {
+            noiseColor.a = 0.0;
+        }
+        
+        gl_FragColor = noiseColor;
+    }`;
+
+  // scale이 Vector3로 전달되면 첫 번째 값을 사용
+  const scaleValue = scale instanceof Vector3 ? scale.x : 1;
+
+  return (
+    <ShaderEffect
+      position={position}
+      vertexShader={vertexShader}
+      fragmentShader={fireFragmentShader}
+      scale={scaleValue}
+      color={new Color(1, 0.5, 0)}
+      duration={2000}
+      blending={NormalBlending}
+      fadeOut
+      rotation={
+        rotation ? new Euler(rotation.x, rotation.y, rotation.z) : undefined
+      }
+      normal={normal}
+      disableBillboard={disableBillboard}
+      uniforms={{
+        resolution: {
+          value: new Vector2(window.innerWidth, window.innerHeight),
+        },
+      }}
     />
   );
 };
