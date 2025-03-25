@@ -2,9 +2,19 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { KeyboardControls, Sky } from '@react-three/drei';
-import { Vector3 } from 'three';
+import { Vector3, Vector2 } from 'three';
 import * as THREE from 'three';
 import Ecctrl, { CustomEcctrlRigidBody } from 'ecctrl';
+import {
+  EffectComposer,
+  Bloom,
+  ChromaticAberration,
+  DepthOfField,
+  Noise,
+  Vignette,
+  LUT,
+} from '@react-three/postprocessing';
+import { BlendFunction } from 'postprocessing';
 import { DefaultLights } from '@/game/fps/lights/DefaultLights';
 import MeshMap from '@/game/fps/environment/MeshMap';
 import PlayerBase from '@/game/fps/entity/player/PlayerBase';
@@ -18,7 +28,6 @@ import {
 } from '@/game/fps/types/fps';
 import { FPS_CHARACTER_CONSTANTS } from '@/game/fps/constants/characterConstants';
 import { getRandomCorner } from '../environment/mapUtils';
-import { useFpsGameNetwork } from '../hooks/useFpsGameNetwork';
 
 const keyboardMap = [
   { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
@@ -37,7 +46,7 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
   physics,
   pausedPhysics,
 }) => {
-  const playerRef = useRef<PlayerBase>(null);
+  const playerRef = useRef<typeof PlayerBase>(null);
   const playerEcctrlRef = useRef<CustomEcctrlRigidBody>(null);
 
   const { selectedModel } = useFpsGameStore();
@@ -92,6 +101,14 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
 
   //console.log('myPlayerUserName', myPlayerUserName);
 
+  const lutTexture = useMemo(() => {
+    const texture = new THREE.TextureLoader().load(
+      '/textures/lut/Blockbuster 14.png'
+    );
+    texture.generateMipmaps = false;
+    return texture;
+  }, []);
+
   return (
     <Canvas
       shadows
@@ -125,13 +142,12 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
             key={account}
             ref={playerEcctrlRef}
             disableFollowCam={false}
-            camZoomSpeed={2} //zoom locked for fps
+            camZoomSpeed={2}
             camCollision={true}
             camInitDis={0.01}
-            camMinDis={0.01} //need a high enough value for camera glitch bug fix
+            camMinDis={0.01}
             camFollowMult={10000}
             camLerpMult={10000}
-            //
             turnVelMultiplier={1}
             turnSpeed={100}
             mode="CameraBasedMovement"
@@ -150,6 +166,23 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
           </Ecctrl>
         </KeyboardControls>
       </Physics>
+      <EffectComposer>
+        <LUT lut={lutTexture} blendFunction={BlendFunction.ADD} />
+
+        <ChromaticAberration
+          blendFunction={BlendFunction.NORMAL}
+          offset={new Vector2(0.0001, 0.0001)}
+          radialModulation={true}
+          modulationOffset={0}
+        />
+        <Noise
+          premultiply
+          blendFunction={BlendFunction.OVERLAY}
+          opacity={0.1}
+        />
+        <Vignette darkness={0.5} offset={0.1} />
+        <DepthOfField focusDistance={0.01} focalLength={0.2} bokehScale={3} />
+      </EffectComposer>
       <EffectSystem scopeId="game" />
     </Canvas>
   );
