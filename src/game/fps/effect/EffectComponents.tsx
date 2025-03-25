@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   AdditiveBlending,
   NormalBlending,
@@ -253,19 +253,11 @@ export const SparkEffect: React.FC<{ position: Vector3 }> = ({ position }) => {
 
 export const FireEffect: React.FC<{
   position: Vector3;
-  rotation?: Vector3;
   scale?: Vector3;
   normal?: Vector3;
-  hitObject?: Object3D;
   disableBillboard?: boolean;
-}> = ({
-  position,
-  rotation,
-  scale,
-  normal,
-  hitObject,
-  disableBillboard = false,
-}) => {
+  volume?: boolean;
+}> = ({ position, scale, normal, disableBillboard = false, volume = true }) => {
   // 불 효과를 위한 커스텀 프래그먼트 셰이더
   const fireFragmentShader = /* glsl */ ` 
     uniform vec2 resolution;
@@ -300,6 +292,8 @@ export const FireEffect: React.FC<{
         // 중심을 향하도록 좌표 조정 (0.5, 0.5가 중심) 
         vec2 p = vUv - 0.5;
        
+        // 거리 계산 - 원형 마스크용
+        float dist = length(p);
              
         // 효과 크기를 더 작게 조정 (숫자를 키워서 효과 크기를 줄임)
         float color = 3.0 - (3.*length(3.0*p));
@@ -307,7 +301,7 @@ export const FireEffect: React.FC<{
         vec3 coord = vec3(atan(p.x,p.y)/6.2832+.5, length(p)*.4, .5);
         
         // 시간에 따른 움직임 추가
-        float t = time; // 시간 속도 조절 
+        float t = time * 2.0; // 시간 속도 조절 
         coord += vec3(0., -t * 0.05, t * 0.01);
         
         for(int i = 1; i <= 7; i++)
@@ -317,19 +311,31 @@ export const FireEffect: React.FC<{
         }
 
         // 불 효과를 위한 색상 조정
-        vec4 noiseColor = vec4(
-            color * 1.5,                    // R
+        vec3 fireColor = vec3(
+            color * 1.8,                    // R
             pow(max(color,0.),2.)*0.4,      // G
-            pow(max(color,0.),3.)*0.15,     // B
-            1.0                            // A (알파 채널) - 기본적으로 불투명
+            pow(max(color,0.),3.)*0.15      // B
         );
         
-        // 검은색(음수) 부분만 투명하게 
-        if (color < 0.0) {
-            noiseColor.a = 0.0;
+        // 하드 컷오프 - 불 효과의 경계를 명확하게
+        float alpha = 1.0;
+        
+        // 색상값이 임계값보다 낮으면 완전 투명하게 처리 (하드 엣지)
+        if (color < 0.05) {
+            discard; // 픽셀 완전히 제거
         }
         
-        gl_FragColor = noiseColor;
+        // 가장자리 부분 페이딩 처리
+        if (color < 0.3) {
+            alpha = smoothstep(0.05, 0.3, color);
+        }
+        
+        // 원형 페이드아웃 - 가장자리에서 부드럽게 사라지도록
+        if (dist > 0.4) {
+            alpha *= smoothstep(0.5, 0.4, dist);
+        }
+        
+        gl_FragColor = vec4(fireColor, alpha);
     }`;
 
   const vertexShader = /* glsl */ `
@@ -348,17 +354,21 @@ export const FireEffect: React.FC<{
       position={position}
       vertexShader={vertexShader}
       fragmentShader={fireFragmentShader}
-      scale={scaleValue}
+      scale={scaleValue * 1.2}
       color={new Color(1, 1, 1)}
       duration={2000}
       blending={AdditiveBlending}
       fadeOut
       normal={normal}
       disableBillboard={disableBillboard}
+      depthWrite={false}
+      depthTest={false}
+      volume={volume}
       uniforms={{
         resolution: {
           value: new Vector2(window.innerWidth, window.innerHeight),
         },
+        time: { value: 0 },
       }}
     />
   );

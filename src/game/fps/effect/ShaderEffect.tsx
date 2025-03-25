@@ -77,6 +77,8 @@ interface ShaderEffectProps {
   // 셰이더 실행 시간 (밀리초)
   duration?: number;
   materialRef?: React.RefObject<CustomShaderMaterial>;
+  // 볼륨 렌더링 모드 (다중 평면으로 볼륨감 표현)
+  volume?: boolean;
 }
 
 export const ShaderEffect: React.FC<ShaderEffectProps> = ({
@@ -95,6 +97,7 @@ export const ShaderEffect: React.FC<ShaderEffectProps> = ({
   rotation,
   blending = AdditiveBlending,
   scale = 1,
+  volume = false,
 }) => {
   const meshRef = useRef<Mesh>(null);
   const internalMaterialRef = useRef<ShaderMaterial>(null);
@@ -298,8 +301,58 @@ export const ShaderEffect: React.FC<ShaderEffectProps> = ({
   // 항상 카메라를 향하는 플랫 패널 사용
   return (
     <animated.mesh ref={meshRef} position={offsetPosition}>
-      <planeGeometry args={[1, 1]} />
-      <shaderMaterial ref={materialRef} args={[modifiedShaderProps]} />
+      {volume ? (
+        // 볼륨 렌더링 모드 - 다중 평면 사용
+        <group>
+          {/* 기본 평면 */}
+          <mesh>
+            <planeGeometry args={[1, 1]} />
+            <shaderMaterial ref={materialRef} args={[modifiedShaderProps]} />
+          </mesh>
+
+          {/* 90도 회전 (X축) */}
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[1, 1]} />
+            <shaderMaterial
+              ref={internalMaterialRef}
+              args={[modifiedShaderProps]}
+            />
+          </mesh>
+
+          {/* 90도 회전 (Y축) */}
+          <mesh rotation={[0, Math.PI / 2, 0]}>
+            <planeGeometry args={[1, 1]} />
+            <shaderMaterial
+              ref={internalMaterialRef}
+              args={[modifiedShaderProps]}
+            />
+          </mesh>
+
+          {/* 45도 회전 (대각선 #1) */}
+          <mesh rotation={[0, Math.PI / 4, Math.PI / 4]}>
+            <planeGeometry args={[1, 1]} />
+            <shaderMaterial
+              ref={internalMaterialRef}
+              args={[modifiedShaderProps]}
+            />
+          </mesh>
+
+          {/* -45도 회전 (대각선 #2) */}
+          <mesh rotation={[0, -Math.PI / 4, Math.PI / 4]}>
+            <planeGeometry args={[1, 1]} />
+            <shaderMaterial
+              ref={internalMaterialRef}
+              args={[modifiedShaderProps]}
+            />
+          </mesh>
+        </group>
+      ) : (
+        // 일반 모드 - 단일 평면 사용
+        <>
+          <planeGeometry args={[1, 1]} />
+          <shaderMaterial ref={materialRef} args={[modifiedShaderProps]} />
+        </>
+      )}
     </animated.mesh>
   );
 };
