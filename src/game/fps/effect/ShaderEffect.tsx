@@ -304,45 +304,90 @@ export const ShaderEffect: React.FC<ShaderEffectProps> = ({
       {volume ? (
         // 볼륨 렌더링 모드 - 다중 평면 사용
         <group>
-          {/* 기본 평면 */}
-          <mesh>
-            <planeGeometry args={[1, 1]} />
-            <shaderMaterial ref={materialRef} args={[modifiedShaderProps]} />
-          </mesh>
-
-          {/* 90도 회전 (X축) */}
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[1, 1]} />
+          {/* 기본 평면 - 가장 큰 크기로 배경 역할 */}
+          <mesh position={[0, 0, -0.005]}>
+            <planeGeometry args={[1.05, 1.05]} />
             <shaderMaterial
-              ref={internalMaterialRef}
-              args={[modifiedShaderProps]}
+              ref={materialRef}
+              args={[
+                {
+                  ...modifiedShaderProps,
+                  depthWrite: false,
+                  polygonOffset: true,
+                  polygonOffsetFactor: -1,
+                  polygonOffsetUnits: -1,
+                },
+              ]}
             />
           </mesh>
 
-          {/* 90도 회전 (Y축) */}
-          <mesh rotation={[0, Math.PI / 2, 0]}>
-            <planeGeometry args={[1, 1]} />
+          {/* 90도 회전 (X축) - 약간 작게 */}
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+            <planeGeometry args={[0.98, 0.98]} />
             <shaderMaterial
-              ref={internalMaterialRef}
-              args={[modifiedShaderProps]}
+              args={[
+                {
+                  ...modifiedShaderProps,
+                  depthWrite: false,
+                  polygonOffset: true,
+                  polygonOffsetFactor: -2,
+                  polygonOffsetUnits: -2,
+                },
+              ]}
             />
           </mesh>
 
-          {/* 45도 회전 (대각선 #1) */}
-          <mesh rotation={[0, Math.PI / 4, Math.PI / 4]}>
-            <planeGeometry args={[1, 1]} />
+          {/* 90도 회전 (Y축) - 약간 작게 */}
+          <mesh rotation={[0, Math.PI / 2, 0]} position={[0, 0, 0]}>
+            <planeGeometry args={[0.99, 0.99]} />
             <shaderMaterial
-              ref={internalMaterialRef}
-              args={[modifiedShaderProps]}
+              args={[
+                {
+                  ...modifiedShaderProps,
+                  depthWrite: false,
+                  polygonOffset: true,
+                  polygonOffsetFactor: -3,
+                  polygonOffsetUnits: -3,
+                },
+              ]}
             />
           </mesh>
 
-          {/* -45도 회전 (대각선 #2) */}
-          <mesh rotation={[0, -Math.PI / 4, Math.PI / 4]}>
-            <planeGeometry args={[1, 1]} />
+          {/* 45도 회전 (대각선 #1) - 더 작게 */}
+          <mesh
+            rotation={[0, Math.PI / 4, Math.PI / 4]}
+            position={[0, 0, 0.002]}
+          >
+            <planeGeometry args={[0.92, 0.92]} />
             <shaderMaterial
-              ref={internalMaterialRef}
-              args={[modifiedShaderProps]}
+              args={[
+                {
+                  ...modifiedShaderProps,
+                  depthWrite: false,
+                  polygonOffset: true,
+                  polygonOffsetFactor: -4,
+                  polygonOffsetUnits: -4,
+                },
+              ]}
+            />
+          </mesh>
+
+          {/* -45도 회전 (대각선 #2) - 더 작게 */}
+          <mesh
+            rotation={[0, -Math.PI / 4, Math.PI / 4]}
+            position={[0, 0, 0.002]}
+          >
+            <planeGeometry args={[0.9, 0.9]} />
+            <shaderMaterial
+              args={[
+                {
+                  ...modifiedShaderProps,
+                  depthWrite: false,
+                  polygonOffset: true,
+                  polygonOffsetFactor: -5,
+                  polygonOffsetUnits: -5,
+                },
+              ]}
             />
           </mesh>
         </group>
