@@ -262,6 +262,7 @@ export const FireEffect: React.FC<{
   const fireFragmentShader = /* glsl */ ` 
     uniform vec2 resolution;
     uniform float time;
+    uniform float opacity;
     varying vec2 vUv;
 
     float customSnoise(vec3 uv, float res)
@@ -284,10 +285,10 @@ export const FireEffect: React.FC<{
         r = fract(sin((v + uv1.z - uv0.z)*1e-1)*1e3);
         float r1 = mix(mix(r.x, r.y, f.x), mix(r.z, r.w, f.x), f.y);
         
-        return mix(r0, r1, f.z)*2.-1.;
+        return mix(r0, r1, f.z)*2.-1.; 
     }
 
-    void main()
+    void main() 
     { 
         // 중심을 향하도록 좌표 조정 (0.5, 0.5가 중심) 
         vec2 p = vUv - 0.5;
@@ -335,6 +336,25 @@ export const FireEffect: React.FC<{
             alpha *= smoothstep(0.5, 0.4, dist);
         }
         
+        // 시간 기반 투명도 애니메이션
+        // 0초 ~ 0.5초: 0 -> 1 (페이드 인)
+        // 0.5초 ~ 1.5초: 1 (완전 불투명)
+        // 1.5초 ~ 2.0초: 1 -> 0 (페이드 아웃)
+        float timeBasedOpacity = 0.0;
+        if (time < 0.5) {
+            // 페이드 인 (0초 ~ 0.5초)
+            timeBasedOpacity = smoothstep(0.0, 0.5, time);
+        } else if (time < 1.5) {
+            // 완전 불투명 구간 (0.5초 ~ 1.5초)
+            timeBasedOpacity = 1.0;
+        } else if (time < 2.0) {
+            // 페이드 아웃 (1.5초 ~ 2.0초)
+            timeBasedOpacity = 1.0 - smoothstep(1.5, 2.0, time);
+        }
+        
+        // 최종 투명도에 시간 기반 투명도 적용
+        alpha *= timeBasedOpacity;
+        
         gl_FragColor = vec4(fireColor, alpha);
     }`;
 
@@ -358,7 +378,6 @@ export const FireEffect: React.FC<{
       color={new Color(1, 1, 1)}
       duration={2000}
       blending={AdditiveBlending}
-      fadeOut
       normal={normal}
       disableBillboard={disableBillboard}
       depthWrite={false}
