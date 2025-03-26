@@ -246,7 +246,7 @@ class PlayerBase extends EntityBase {
 
     this.initCamera(props.cameraContext);
     console.log('scene', this.props.scene);
-    this.props.scene.visible = false;
+    this.props.scene.visible = true;
 
     // 기본 무기 설정
     this.currentWeaponType = WEAPON.AK47;

@@ -2,21 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { KeyboardControls, Sky } from '@react-three/drei';
-import { Vector3, Vector2 } from 'three';
+import { Vector3 } from 'three';
 import * as THREE from 'three';
 import Ecctrl, { CustomEcctrlRigidBody } from 'ecctrl';
-import {
-  EffectComposer,
-  Bloom,
-  ChromaticAberration,
-  DepthOfField,
-  Noise,
-  Vignette,
-  LUT,
-} from '@react-three/postprocessing';
-import { BlendFunction } from 'postprocessing';
+
 import { DefaultLights } from '@/game/fps/lights/DefaultLights';
-import MeshMap from '@/game/fps/environment/MeshMap';
+import { GameWorld } from '@/game/fps/environment/Terrain';
 import PlayerBase from '@/game/fps/entity/player/PlayerBase';
 import Entity from '@/game/fps/entity/Entity';
 import { EffectSystem } from '@/game/fps/effect/EffectSystem';
@@ -28,7 +19,6 @@ import {
 } from '@/game/fps/types/fps';
 import { FPS_CHARACTER_CONSTANTS } from '@/game/fps/constants/characterConstants';
 import { getRandomCorner } from '../environment/mapUtils';
-import { CustomShaderEffect } from '@/game/fps/effect/CustomShaderEffect';
 
 const keyboardMap = [
   { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
@@ -136,7 +126,7 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
       <Sky sunPosition={[100, 10, 100]} distance={1000} />
       <DefaultLights />
       <Physics debug={physics} paused={pausedPhysics}>
-        <MeshMap />
+        <GameWorld />
 
         <KeyboardControls map={keyboardMap}>
           <Ecctrl
@@ -144,14 +134,13 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
             ref={playerEcctrlRef}
             disableFollowCam={false}
             camZoomSpeed={2}
-            camCollision={false}
+            camCollision={true}
             camInitDis={0.01}
             camMinDis={0.01}
             camFollowMult={10000}
             camLerpMult={10000}
             turnVelMultiplier={1}
             turnSpeed={100}
-            mode="CameraBasedMovement"
             camTargetPos={new Vector3(0, 0, 0)}
             position={playerStartPoint}
           >
