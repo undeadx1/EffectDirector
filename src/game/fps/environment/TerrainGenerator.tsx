@@ -8,6 +8,8 @@ import {
   PlaneGeometry,
   Mesh,
   MeshStandardMaterial,
+  TextureLoader,
+  RepeatWrapping,
 } from 'three';
 import { createNoise2D } from 'simplex-noise';
 import seedrandom from 'seedrandom';
@@ -36,6 +38,10 @@ interface TerrainGeneratorProps {
   restitution?: number;
   /** 지형 재질 색상 */
   color?: string;
+  /** 지형 텍스처 경로 */
+  texturePath?: string;
+  /** 텍스처 반복 횟수 */
+  textureRepeat?: number;
 }
 
 /**
@@ -67,14 +73,16 @@ export const TerrainGenerator = memo(
         width = 100,
         depth = 100,
         maxHeight = 15,
-        widthSegments = 64,
-        depthSegments = 64,
+        widthSegments = 256,
+        depthSegments = 256,
         seed = 'default-seed',
         roughness = 0.5,
         detail = 4,
         friction = 1,
         restitution = 0,
         color = '#6b8e23',
+        texturePath = '/textures/Grass_A_BaseColor.png',
+        textureRepeat = 20,
       },
       ref
     ) => {
@@ -97,9 +105,9 @@ export const TerrainGenerator = memo(
           // 1. 대규모 지형 생성 (언덕과 계곡)
           let baseHeight = 0;
           let frequency = 0.2; // 더 낮은 주파수로 시작 (더 넓은 언덕/계곡)
-          let amplitude = 1;
+          let amplitude = 5;
 
-          for (let i = 0; i < 2; i++) {
+          for (let i = 0; i < 5; i++) {
             // 더 적은 옥타브 (대형 지형에만 집중)
             baseHeight +=
               noiseGenerator(normX * frequency, normZ * frequency) * amplitude;
@@ -140,7 +148,7 @@ export const TerrainGenerator = memo(
 
       // 지형 메시 생성
       const terrain = useMemo(() => {
-        // 평면 지오메트리 생성
+        // 훨씬 더 고해상도의 평면 지오메트리 생성
         const geometry = new PlaneGeometry(
           width,
           depth,
@@ -148,40 +156,38 @@ export const TerrainGenerator = memo(
           depthSegments
         );
 
-        // 지오메트리를 x-z 평면으로 회전 (기본 평면은 x-y 평면)
         geometry.rotateX(-Math.PI / 2);
-
-        // 버텍스 좌표 가져오기
         const vertices = geometry.attributes.position;
 
-        // 각 버텍스의 높이(y값) 조정
+        // 높이값 부드럽게 보간
         for (let i = 0; i < vertices.count; i++) {
-          // 현재 버텍스의 x, z 좌표
           const x = vertices.getX(i);
           const z = vertices.getZ(i);
-
-          // 높이맵에서 해당 좌표의 높이값 계산
-          const y = generateHeightmap(
-            x + width / 2, // 좌표 오프셋 (중앙이 0,0이 되도록)
-            z + depth / 2
-          );
-
-          // 계산된 높이값으로 y좌표 설정
+          const y = generateHeightmap(x + width / 2, z + depth / 2);
           vertices.setY(i, y);
         }
 
-        // 법선 벡터 재계산 (조명 계산을 위해 필요)
+        // 법선 벡터 재계산 - 부드러운 셰이딩을 위해 중요
         geometry.computeVertexNormals();
 
-        // 지형 재질 생성
+        // 텍스처 로딩
+        const textureLoader = new TextureLoader();
+        const texture = textureLoader.load(texturePath);
+
+        // 텍스처 반복 설정
+        texture.wrapS = RepeatWrapping;
+        texture.wrapT = RepeatWrapping;
+        texture.repeat.set(textureRepeat, textureRepeat);
+
+        // 재질 설정에 텍스처 추가
         const material = new MeshStandardMaterial({
           color,
+          map: texture,
           roughness: 0.8,
           metalness: 0.1,
           flatShading: false,
         });
 
-        // 지형 메시 생성
         const mesh = new Mesh(geometry, material);
         mesh.receiveShadow = true;
         mesh.castShadow = true;
@@ -194,6 +200,8 @@ export const TerrainGenerator = memo(
         depthSegments,
         color,
         generateHeightmap,
+        texturePath,
+        textureRepeat,
       ]);
 
       // 지형 메시 설정
