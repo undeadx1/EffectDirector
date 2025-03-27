@@ -1,11 +1,9 @@
 import { Suspense } from 'react';
 import TerrainGenerator from './TerrainGenerator';
-import { DDSSkybox } from '../DDSSkybox';
 
 export const GameWorld = () => {
   return (
     <Suspense fallback={null}>
-      <DDSSkybox path="/textures/skybox/sampleEnvHDR.dds" />
       <TerrainGenerator
         width={256}
         depth={256}
