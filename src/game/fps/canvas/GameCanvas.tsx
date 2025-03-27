@@ -123,7 +123,6 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
     >
       {/*<Stars />*/}
       {/*<Nebula />*/}
-      <Sky sunPosition={[100, 10, 100]} distance={1000} />
       <DefaultLights />
       <Physics debug={physics} paused={pausedPhysics}>
         <GameWorld />
