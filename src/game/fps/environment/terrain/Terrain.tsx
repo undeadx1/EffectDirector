@@ -105,7 +105,6 @@ export const Terrain = memo(
         normalScale = 1.0,
         grassDensity = 0.05,
         grassHeight = 1.0,
-        grassTexturePath = '/textures/grass_blade_diffuse.png',
         grassColor = '#4a7c2a',
         windStrength = 0.2,
         enableGrass = true,
@@ -274,16 +273,11 @@ export const Terrain = memo(
                 <GrassShader
                   terrainWidth={width}
                   terrainDepth={depth}
-                  terrainHeightFunc={(x, z) => {
-                    const localX = x + width / 2;
-                    const localZ = z + depth / 2;
-                    return generateHeightmap(localX, localZ);
-                  }}
-                  density={0.01}
-                  grassHeight={1.0}
-                  color={grassColor}
+                  terrainHeightFunc={generateHeightmap}
+                  grassDensity={grassDensity}
+                  grassHeight={grassHeight}
+                  grassColor={grassColor}
                   windStrength={windStrength}
-                  texturePath={grassTexturePath}
                 />
               )}
             </>
