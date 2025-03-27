@@ -11,11 +11,11 @@ import { FPS_GAME_CONSTANTS } from '@/game/fps/constants/game.constants';
 import { useEffectStore } from '../store/useEffectStore';
 import {
   BulletHole,
-  FireEffect,
   SparkEffect,
   TexturedLaserBeam,
 } from '../effect/EffectComponents';
-
+import { FireBallEffect } from '../effect/shaderEffects/FireBallEffect';
+import { IceBallEffect } from '../effect/shaderEffects/IceBallEffect';
 /**
  * Props for initializing the ShootingSystem
  */
@@ -250,7 +250,7 @@ class ShootingSystem {
       // console.log('Hit an EntityBase object - applying character hit effect');
     } else {
       // 벽에 붙일 때 사용
-      useEffectStore.getState().addEffect(FireEffect, position, {
+      useEffectStore.getState().addEffect(FireBallEffect, position, {
         normal: normal,
         duration: 2000,
         scopeId: 'game',

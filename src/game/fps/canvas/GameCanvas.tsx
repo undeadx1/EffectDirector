@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import Ecctrl, { CustomEcctrlRigidBody } from 'ecctrl';
 
 import { DefaultLights } from '@/game/fps/lights/DefaultLights';
-import { GameWorld } from '@/game/fps/environment/Terrain';
+import { GameWorld } from '@/game/fps/environment/terrain/Terrain';
 import PlayerBase from '@/game/fps/entity/player/PlayerBase';
 import Entity from '@/game/fps/entity/Entity';
 import { EffectSystem } from '@/game/fps/effect/EffectSystem';
