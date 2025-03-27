@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import Ecctrl, { CustomEcctrlRigidBody } from 'ecctrl';
 
 import { DefaultLights } from '@/game/fps/lights/DefaultLights';
-import { GameWorld } from '@/game/fps/environment/terrain/Terrain';
+import { Map } from '@/game/fps/environment/terrain/Map';
 import PlayerBase from '@/game/fps/entity/player/PlayerBase';
 import Entity from '@/game/fps/entity/Entity';
 import { EffectSystem } from '@/game/fps/effect/EffectSystem';
@@ -125,8 +125,7 @@ const GameCanvas: React.FC<{ physics: boolean; pausedPhysics: boolean }> = ({
       {/*<Nebula />*/}
       <DefaultLights />
       <Physics debug={physics} paused={pausedPhysics}>
-        <GameWorld />
-
+        <Map />
         <KeyboardControls map={keyboardMap}>
           <Ecctrl
             key={account}
