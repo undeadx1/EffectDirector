@@ -13,10 +13,11 @@ export const Map = () => {
         detail={6}
         color="#5d8a68"
         enableGrass={true}
-        grassDensity={0.1}
+        grassDensity={20}
+        clusterFactor={2}
         grassHeight={2}
-        grassColor="#4a7c2a"
-        windStrength={0.01}
+        grassColor="#669944"
+        windStrength={0.3}
         grassTexturePath="/textures/grass_blade_diffuse.png"
       />
     </Suspense>

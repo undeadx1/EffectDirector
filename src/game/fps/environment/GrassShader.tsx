@@ -13,6 +13,8 @@ interface GrassShaderProps {
   yOffset?: number;
   clusterFactor?: number;
   useProcedural?: boolean; // 프로시저럴 렌더링 사용 여부
+  noiseScale?: number; // 노이즈 스케일 조절 (클러스터 크기 조절)
+  clusterThreshold?: number; // 클러스터링 임계값
 }
 
 export const GrassShader: React.FC<GrassShaderProps> = ({
@@ -21,18 +23,20 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
   terrainHeightFunc,
   grassDensity = 0.1,
   grassHeight = 1.0,
-  grassColor = '#4a7c2a',
+  grassColor = '#ffffff',
   windStrength = 0.15,
   yOffset = 20.0,
-  clusterFactor = 0.05,
-  useProcedural = true, // 기본값으로 프로시저럴 방식 사용
+  clusterFactor = 0.7, // 기본값 증가 (0.05 → 0.7)
+  useProcedural = true,
+  noiseScale = 0.15,
+  clusterThreshold = 0.5,
 }) => {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const time = useRef(0);
   const initialized = useRef(false);
 
   // 최대 풀 개수 (성능 고려)
-  const MAX_GRASS = 130000;
+  const MAX_GRASS = 260000;
   const count = Math.min(
     MAX_GRASS,
     Math.floor(terrainWidth * terrainDepth * grassDensity)
@@ -51,39 +55,45 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
     return geo;
   }, [grassHeight]);
 
-  // 뭉침 분포를 위한 노이즈 함수
+  // 향상된 노이즈 함수 (더 자연스러운 분포)
   const noise2D = (x: number, y: number) => {
     const X = Math.floor(x) & 255;
     const Y = Math.floor(y) & 255;
 
-    const fx = x - Math.floor(x);
-    const fy = y - Math.floor(y);
-
-    const u = fx * fx * (3.0 - 2.0 * fx);
-    const v = fy * fy * (3.0 - 2.0 * fy);
-
-    return (
+    // 더 복잡한 노이즈 패턴 (여러 주파수)
+    const n1 =
       (Math.sin(X * 0.1 + Y * 0.2) * 0.5 + 0.5) *
-      (Math.cos(X * 0.3 + Y * 0.1) * 0.5 + 0.5)
-    );
+      (Math.cos(X * 0.3 + Y * 0.1) * 0.5 + 0.5);
+    const n2 =
+      (Math.sin(X * 0.5 + Y * 0.3) * 0.5 + 0.5) *
+      (Math.cos(X * 0.2 + Y * 0.6) * 0.5 + 0.5);
+
+    // 노이즈 혼합
+    return n1 * 0.7 + n2 * 0.3;
   };
 
-  // 클러스터링 함수
+  // 개선된 클러스터링 함수
   const shouldPlaceGrass = (x: number, z: number, clusterFactor: number) => {
-    const n = noise2D(x * 0.05, z * 0.05);
-    return n > 1.0 - clusterFactor * 0.9;
+    // 노이즈 스케일 적용 (noiseScale이 클수록 클러스터가 작고 많아짐)
+    const n = noise2D(x * noiseScale, z * noiseScale);
+
+    // 임계값 로직 개선
+    // clusterFactor가 클수록 더 많은 풀이 생성됨
+    // clusterThreshold는 기본 임계값 (낮을수록 더 많은 풀 생성)
+    return n > clusterThreshold - clusterFactor * 0.5;
   };
 
-  // 풀 배치
+  // 풀 배치 로직
   useEffect(() => {
     if (!meshRef.current || initialized.current) return;
 
     console.log(
-      `Starting grass placement with ${useProcedural ? 'procedural' : 'texture'} rendering`
+      `Starting grass placement with clustering factor ${clusterFactor} and noise scale ${noiseScale}`
     );
 
-    // 격자 크기 계산
-    const gridSize = Math.ceil(Math.sqrt(count * 1.5));
+    // 격자 크기 계산 - 밀도에 따라 조정
+    const densityFactor = Math.min(3, Math.max(1, grassDensity * 10)); // 밀도가 높을수록 더 세밀한 격자
+    const gridSize = Math.ceil(Math.sqrt(count * densityFactor));
     const cellWidth = terrainWidth / gridSize;
     const cellDepth = terrainDepth / gridSize;
 
@@ -91,14 +101,35 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
     const halfWidth = terrainWidth / 2;
     const halfDepth = terrainDepth / 2;
 
+    // 클러스터링 정보 추적
+    let clusterCount = 0;
+    let nonClusterCount = 0;
+
+    // 높은 밀도일 경우 최적화된 간격으로 배치
+    const highDensity = grassDensity > 0.1;
+    const skipFactor = highDensity ? 2 : 1; // 높은 밀도에서는 일부만 처리
+
     // 격자 기반 배치 (두 번의 패스)
     for (let pass = 0; pass < 2 && placedCount < count; pass++) {
+      // 첫 번째 패스: 주요 클러스터링 (더 많은 풀)
+      // 두 번째 패스: 빈 공간 채우기 (적은 수의 풀)
       const currentClusterFactor =
         pass === 0 ? clusterFactor : clusterFactor * 0.3;
-      const targetCount = pass === 0 ? count * 0.7 : count;
 
-      for (let gz = 0; gz < gridSize && placedCount < targetCount; gz++) {
-        for (let gx = 0; gx < gridSize && placedCount < targetCount; gx++) {
+      // 높은 밀도에서는 첫번째 패스에 더 많은 풀을 배치
+      const targetCount =
+        pass === 0 ? count * (highDensity ? 0.9 : 0.8) : count;
+
+      for (
+        let gz = 0;
+        gz < gridSize && placedCount < targetCount;
+        gz += skipFactor
+      ) {
+        for (
+          let gx = 0;
+          gx < gridSize && placedCount < targetCount;
+          gx += skipFactor
+        ) {
           // 위치 계산
           const baseX =
             (gx / gridSize) * terrainWidth - halfWidth + cellWidth / 2;
@@ -114,13 +145,23 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
           const x = baseX + offsetX;
           const z = baseZ + offsetZ;
 
-          // 클러스터링 적용
-          if (pass === 0 && !shouldPlaceGrass(x, z, currentClusterFactor)) {
-            continue;
-          }
+          // 개선된 클러스터링 적용
+          const isInCluster = shouldPlaceGrass(x, z, currentClusterFactor);
 
-          if (pass === 1 && shouldPlaceGrass(x, z, clusterFactor * 0.8)) {
-            if (Math.random() < 0.8) continue;
+          if (pass === 0) {
+            // 첫 번째 패스: 클러스터에만 배치
+            if (!isInCluster) continue;
+            clusterCount++;
+          } else {
+            // 두 번째 패스: 클러스터가 아닌 곳에만 드문드문 배치
+            if (isInCluster) {
+              // 이미 클러스터인 곳은 높은 확률로 건너뜀
+              if (Math.random() < 0.9) continue;
+            } else {
+              // 클러스터가 아닌 곳에도 낮은 확률로 배치
+              if (Math.random() < 0.7) continue;
+            }
+            nonClusterCount++;
           }
 
           // 높이 계산
@@ -137,7 +178,7 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
             ) {
               y = terrainHeightFunc(sampleX, sampleZ);
             }
-          } catch (error) {
+          } catch {
             continue;
           }
 
@@ -158,16 +199,30 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
           // 인스턴스 매트릭스 설정
           dummy.position.set(x, y, z);
           dummy.rotation.set(tiltAngleX, angle, tiltAngleZ);
-          dummy.scale.set(uniformScale, uniformScale, 1);
+          dummy.scale.set(uniformScale, uniformScale, uniformScale);
           dummy.updateMatrix();
 
           meshRef.current.setMatrixAt(placedCount, dummy.matrix);
           placedCount++;
+
+          // 진행 상황 로깅
+          if (placedCount % 10000 === 0) {
+            console.log(`Placed ${placedCount}/${count} grass instances...`);
+          }
         }
       }
+
+      // 패스 완료 로깅
+      console.log(
+        `Pass ${pass + 1} complete: ${pass === 0 ? clusterCount : nonClusterCount} instances placed`
+      );
     }
 
     console.log(`Successfully placed ${placedCount} grass blades`);
+    console.log(
+      `Clustering statistics: ${clusterCount} in clusters, ${nonClusterCount} scattered`
+    );
+
     meshRef.current.count = placedCount;
     meshRef.current.instanceMatrix.needsUpdate = true;
     initialized.current = true;
@@ -179,6 +234,8 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
     yOffset,
     clusterFactor,
     useProcedural,
+    noiseScale,
+    clusterThreshold,
   ]);
 
   // 버텍스 쉐이더 - 바람 효과 + SDF 기반 풀잎
@@ -226,11 +283,11 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
       
       // 최종 위치 계산
       gl_Position = projectionMatrix * viewMatrix * mvPosition;
-    }
+    } 
   `;
 
   // 프래그먼트 쉐이더 - SDF 기반 풀잎 렌더링
-  const proceduralFragmentShader = `
+  const proceduralFragmentShader = ` 
     uniform vec3 grassColor;
     uniform float time;
     varying vec2 vUv;
@@ -271,15 +328,16 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
       // 풀잎 부분을 SDF로 정의
       float d = sdGrassBlade2d(p * 2.0); // 스케일 조정
       
-      // 거리 필드에 따라 알파 계산
-      float edge = 0.05; // 에지 부드러움 정도
+      // 거리 필드에 따라 알파 계산 - 더 넓은 범위의 알파값 허용
+      float edge = 0.1; // 에지 부드러움 정도 (0.05→0.1로 증가)
       float alpha = 1.0 - smoothstep(-edge, edge, d);
       
-      if (alpha < 0.01) discard; // 너무 투명한 부분은 폐기
+      // 더 투명한 부분도 일부 허용 (0.01→0.005로 감소)
+      if (alpha < 0.005) discard; 
       
       // 높이에 따른 색상 변화
-      vec3 topColor = grassColor * 1.1;  // 상단 색상 (약간 밝게)
-      vec3 bottomColor = grassColor * 0.9;  // 하단 색상 (약간 어둡게)
+      vec3 topColor = grassColor * 1.2;  // 상단 색상 (더 밝게)
+      vec3 bottomColor = grassColor * 0.8;  // 하단 색상 (더 어둡게)
       vec3 color = mix(bottomColor, topColor, vHeight);
       
       // 풀잎에 약간의 질감 추가
@@ -287,8 +345,11 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
       float textureFactor = mix(0.85, 1.0, windFactor * vHeight);
       color *= textureFactor;
       
-      // 가장자리 쪽이 더 투명하게
-      alpha *= smoothstep(1.0, 0.7, abs(p.x));
+      // 가장자리 처리 개선 - 모든 시점에서 더 잘 보이도록
+      alpha *= smoothstep(1.0, 0.5, abs(p.x));
+      
+      // 알파값 강화
+      alpha = pow(alpha, 0.8); // 알파값을 전체적으로 증가시킴
       
       gl_FragColor = vec4(color, alpha);
     }
@@ -373,7 +434,7 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
     <instancedMesh
       ref={meshRef}
       args={[grassGeometry, undefined, count]}
-      frustumCulled={true}
+      frustumCulled={false}
       renderOrder={2}
     >
       <shaderMaterial
@@ -384,8 +445,8 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
         uniforms={uniforms}
         transparent={true}
         side={THREE.DoubleSide}
-        depthWrite={false}
-        alphaTest={0.05}
+        depthWrite={true}
+        alphaTest={0.01}
       />
     </instancedMesh>
   );

@@ -62,6 +62,7 @@ interface TerrainGeneratorProps {
   enableGrass?: boolean;
   /** 디버깅 모드 활성화 */
   debug?: boolean;
+  clusterFactor?: number;
 }
 
 /**
@@ -106,6 +107,7 @@ export const Terrain = memo(
         textureRepeat = 20,
         normalScale = 1.0,
         grassDensity = 0.05,
+        clusterFactor = 0.7,
         grassHeight = 1.0,
         grassColor = '#4a7c2a',
         windStrength = 0.2,
@@ -286,7 +288,8 @@ export const Terrain = memo(
                   terrainWidth={width}
                   terrainDepth={depth}
                   terrainHeightFunc={generateHeightmap}
-                  grassDensity={0.2} // 높은 밀도
+                  grassDensity={grassDensity} // 높은 밀도
+                  clusterFactor={clusterFactor}
                   grassHeight={grassHeight}
                   grassColor={grassColor}
                   windStrength={windStrength}
