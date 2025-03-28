@@ -273,7 +273,7 @@ export const Terrain = memo(
                 <GrassShader
                   terrainWidth={width}
                   terrainDepth={depth}
-                  terrainHeightFunc={generateHeightmap}
+                  terrainHeightFunc={(x, z) => generateHeightmap(x, z)}
                   grassDensity={grassDensity}
                   grassHeight={grassHeight}
                   grassColor={grassColor}
