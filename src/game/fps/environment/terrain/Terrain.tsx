@@ -14,7 +14,6 @@ import {
 } from 'three';
 import { createNoise2D } from 'simplex-noise';
 import seedrandom from 'seedrandom';
-import { GrassShader } from '../GrassShader';
 
 /** TerrainGenerator 컴포넌트의 Props */
 interface TerrainGeneratorProps {
@@ -48,21 +47,13 @@ interface TerrainGeneratorProps {
   textureRepeat?: number;
   /** 노말맵 강도 */
   normalScale?: number;
-  /** 풀 밀도 (높을수록 더 많은 풀) */
-  grassDensity?: number;
-  /** 풀 높이 */
-  grassHeight?: number;
-  /** 풀 텍스처 경로 */
-  grassTexturePath?: string;
-  /** 풀 색상 */
-  grassColor?: string;
-  /** 바람 세기 */
-  windStrength?: number;
-  /** 풀 활성화 여부 */
-  enableGrass?: boolean;
   /** 디버깅 모드 활성화 */
   debug?: boolean;
-  clusterFactor?: number;
+  /** 생성된 높이맵 함수를 외부로 전달하는 콜백 */
+  onHeightMapReady?: (
+    heightFunc: (x: number, z: number) => number,
+    adjustedPosition: Vector3
+  ) => void;
 }
 
 /**
@@ -106,13 +97,8 @@ export const Terrain = memo(
         normalMapPath = '/textures/grass_normal.png',
         textureRepeat = 20,
         normalScale = 1.0,
-        grassDensity = 0.05,
-        clusterFactor = 0.7,
-        grassHeight = 1.0,
-        grassColor = '#4a7c2a',
-        windStrength = 0.2,
-        enableGrass = true,
         debug = false,
+        onHeightMapReady,
       },
       ref
     ) => {
@@ -269,34 +255,24 @@ export const Terrain = memo(
         return new Vector3(0, 0, 0);
       }, [terrainMesh, debug]);
 
+      // 높이맵 함수와 위치 정보를 부모 컴포넌트에 전달
+      useEffect(() => {
+        if (onHeightMapReady) {
+          onHeightMapReady(generateHeightmap, adjustedPosition);
+        }
+      }, [generateHeightmap, adjustedPosition, onHeightMapReady]);
+
       return (
         <group position={adjustedPosition} ref={ref}>
           {terrainMesh && (
-            <>
-              <RigidBody
-                type="fixed"
-                colliders="trimesh"
-                friction={friction}
-                restitution={restitution}
-              >
-                <primitive object={terrainMesh} />
-              </RigidBody>
-
-              {/* 조밀한 풀 적용 */}
-              {enableGrass && (
-                <GrassShader
-                  terrainWidth={width}
-                  terrainDepth={depth}
-                  terrainHeightFunc={generateHeightmap}
-                  grassDensity={grassDensity} // 높은 밀도
-                  clusterFactor={clusterFactor}
-                  grassHeight={grassHeight}
-                  grassColor={grassColor}
-                  windStrength={windStrength}
-                  yOffset={20}
-                />
-              )}
-            </>
+            <RigidBody
+              type="fixed"
+              colliders="trimesh"
+              friction={friction}
+              restitution={restitution}
+            >
+              <primitive object={terrainMesh} />
+            </RigidBody>
           )}
         </group>
       );
