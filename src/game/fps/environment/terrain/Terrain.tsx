@@ -60,6 +60,8 @@ interface TerrainGeneratorProps {
   windStrength?: number;
   /** 풀 활성화 여부 */
   enableGrass?: boolean;
+  /** 디버깅 모드 활성화 */
+  debug?: boolean;
 }
 
 /**
@@ -108,6 +110,7 @@ export const Terrain = memo(
         grassColor = '#4a7c2a',
         windStrength = 0.2,
         enableGrass = true,
+        debug = false,
       },
       ref
     ) => {
@@ -250,10 +253,19 @@ export const Terrain = memo(
           const center = new Vector3();
           boundingBox.getCenter(center);
 
+          if (debug) {
+            console.log(
+              `Terrain bounding box: min(${boundingBox.min.x.toFixed(2)}, ${boundingBox.min.y.toFixed(2)}, ${boundingBox.min.z.toFixed(2)}), max(${boundingBox.max.x.toFixed(2)}, ${boundingBox.max.y.toFixed(2)}, ${boundingBox.max.z.toFixed(2)})`
+            );
+            console.log(
+              `Terrain center: (${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)})`
+            );
+          }
+
           return new Vector3(-center.x, -center.y, -center.z);
         }
         return new Vector3(0, 0, 0);
-      }, [terrainMesh]);
+      }, [terrainMesh, debug]);
 
       return (
         <group position={adjustedPosition} ref={ref}>
@@ -268,16 +280,17 @@ export const Terrain = memo(
                 <primitive object={terrainMesh} />
               </RigidBody>
 
-              {/* 풀 셰이더 추가 */}
+              {/* 조밀한 풀 적용 */}
               {enableGrass && (
                 <GrassShader
                   terrainWidth={width}
                   terrainDepth={depth}
-                  terrainHeightFunc={(x, z) => generateHeightmap(x, z)}
-                  grassDensity={grassDensity}
+                  terrainHeightFunc={generateHeightmap}
+                  grassDensity={0.2} // 높은 밀도
                   grassHeight={grassHeight}
                   grassColor={grassColor}
                   windStrength={windStrength}
+                  yOffset={20}
                 />
               )}
             </>
