@@ -36,7 +36,7 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
   const initialized = useRef(false);
 
   // 최대 풀 개수 (성능 고려)
-  const MAX_GRASS = 260000;
+  const MAX_GRASS = 2000000;
   const count = Math.min(
     MAX_GRASS,
     Math.floor(terrainWidth * terrainDepth * grassDensity)
@@ -100,6 +100,16 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
     let placedCount = 0;
     const halfWidth = terrainWidth / 2;
     const halfDepth = terrainDepth / 2;
+
+    // 위치와 정보를 저장할 배열
+    type GrassInstance = { 
+      position: THREE.Vector3;
+      rotation: THREE.Euler;
+      scale: THREE.Vector3;
+      distanceToCamera: number;
+    };
+
+    const instances: GrassInstance[] = [];
 
     // 클러스터링 정보 추적
     let clusterCount = 0;
@@ -196,13 +206,17 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
           const tiltAngleX = (Math.random() - 0.5) * 0.1; // X축 기울기
           const tiltAngleZ = (Math.random() - 0.5) * 0.1; // Z축 기울기
 
-          // 인스턴스 매트릭스 설정
-          dummy.position.set(x, y, z);
-          dummy.rotation.set(tiltAngleX, angle, tiltAngleZ);
-          dummy.scale.set(uniformScale, uniformScale, uniformScale);
-          dummy.updateMatrix();
+          // 카메라와의 거리 계산 (간단한 Z 깊이만 고려)
+          const distanceToCamera = z + halfDepth; // Z가 클수록 카메라에서 더 멀리 있음
 
-          meshRef.current.setMatrixAt(placedCount, dummy.matrix);
+          // 인스턴스 정보 저장
+          instances.push({
+            position: new THREE.Vector3(x, y, z),
+            rotation: new THREE.Euler(tiltAngleX, angle, tiltAngleZ),
+            scale: new THREE.Vector3(uniformScale, uniformScale, uniformScale),
+            distanceToCamera,
+          });
+
           placedCount++;
 
           // 진행 상황 로깅
@@ -222,6 +236,19 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
     console.log(
       `Clustering statistics: ${clusterCount} in clusters, ${nonClusterCount} scattered`
     );
+
+    // 깊이에 따라 인스턴스 정렬 (멀리 있는 것부터 가까이 있는 것 순으로)
+    instances.sort((a, b) => b.distanceToCamera - a.distanceToCamera);
+
+    // 정렬된 순서대로 매트릭스 설정
+    instances.forEach((instance, i) => {
+      dummy.position.copy(instance.position);
+      dummy.rotation.copy(instance.rotation);
+      dummy.scale.copy(instance.scale);
+      dummy.updateMatrix();
+
+      meshRef.current!.setMatrixAt(i, dummy.matrix);
+    });
 
     meshRef.current.count = placedCount;
     meshRef.current.instanceMatrix.needsUpdate = true;
@@ -287,7 +314,7 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
   `;
 
   // 프래그먼트 쉐이더 - SDF 기반 풀잎 렌더링
-  const proceduralFragmentShader = ` 
+  const proceduralFragmentShader = `
     uniform vec3 grassColor;
     uniform float time;
     varying vec2 vUv;
@@ -328,12 +355,14 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
       // 풀잎 부분을 SDF로 정의
       float d = sdGrassBlade2d(p * 2.0); // 스케일 조정
       
-      // 거리 필드에 따라 알파 계산 - 더 넓은 범위의 알파값 허용
-      float edge = 0.1; // 에지 부드러움 정도 (0.05→0.1로 증가)
-      float alpha = 1.0 - smoothstep(-edge, edge, d);
+      // 거리 필드에 따라 알파 계산 - 더 날카로운 경계 생성
+      float edge = 0.03; // 더 작은 값 사용으로 날카로운 경계
       
-      // 더 투명한 부분도 일부 허용 (0.01→0.005로 감소)
-      if (alpha < 0.005) discard; 
+      // 하드 엣지 처리 - 부드러운 단계 대신 보다 분명한 경계
+      float alpha = smoothstep(edge, -edge, d);
+      
+      // 알파 값이 매우 낮으면 완전히 폐기
+      if (alpha < 0.15) discard; // 임계값 높임
       
       // 높이에 따른 색상 변화
       vec3 topColor = grassColor * 1.2;  // 상단 색상 (더 밝게)
@@ -345,11 +374,11 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
       float textureFactor = mix(0.85, 1.0, windFactor * vHeight);
       color *= textureFactor;
       
-      // 가장자리 처리 개선 - 모든 시점에서 더 잘 보이도록
-      alpha *= smoothstep(1.0, 0.5, abs(p.x));
+      // 가장자리 처리 - 경계를 더 명확하게
+      alpha *= smoothstep(1.0, 0.8, abs(p.x));
       
-      // 알파값 강화
-      alpha = pow(alpha, 0.8); // 알파값을 전체적으로 증가시킴
+      // 알파값을 이진화에 가깝게 처리 - 회색 영역 제거
+      alpha = smoothstep(0.4, 0.6, alpha);
       
       gl_FragColor = vec4(color, alpha);
     }
@@ -357,7 +386,7 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
 
   // 일반 텍스처 기반 프래그먼트 쉐이더
   const textureFragmentShader = `
-    uniform sampler2D grassTexture;
+    uniform sampler2D grassTexture; 
     uniform vec3 grassColor;
     uniform bool textureTint;
     varying vec2 vUv;
@@ -374,7 +403,8 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
       // 텍스처 없으면 프로시저럴 마스크 생성
       vec2 p = vUv * 2.0 - 1.0;
       float d = 1.0 - length(p);
-      texColor.a = smoothstep(0.0, 0.1, d);
+      // 더 선명한 마스크 생성
+      texColor.a = smoothstep(0.0, 0.05, d);
       #endif
       
       // 색상 계산
@@ -394,11 +424,12 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
         color = mix(bottomColor, topColor, vHeight);
       }
       
-      // 알파값 처리
+      // 알파값 처리 - 알파값 이진화에 가까운 처리
       float alpha = texColor.a;
+      alpha = smoothstep(0.4, 0.6, alpha);
       
-      // 너무 투명한 픽셀은 폐기
-      if (alpha < 0.1) discard;
+      // 임계값 높임
+      if (alpha < 0.15) discard;
       
       // 최종 색상
       gl_FragColor = vec4(color, alpha);
@@ -446,7 +477,9 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
         transparent={true}
         side={THREE.DoubleSide}
         depthWrite={true}
-        alphaTest={0.01}
+        depthTest={true}
+        alphaTest={0.1}
+        blending={THREE.NormalBlending}
       />
     </instancedMesh>
   );
