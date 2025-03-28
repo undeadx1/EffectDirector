@@ -1,6 +1,8 @@
 import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import vertexShader from './terrain/shader/windGrass.vert.glsl';
+import proceduralFragmentShader from './terrain/shader/grassBlade.frag.glsl';
 
 interface GrassShaderProps {
   terrainWidth: number;
@@ -102,7 +104,7 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
     const halfDepth = terrainDepth / 2;
 
     // 위치와 정보를 저장할 배열
-    type GrassInstance = { 
+    type GrassInstance = {
       position: THREE.Vector3;
       rotation: THREE.Euler;
       scale: THREE.Vector3;
@@ -265,177 +267,6 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
     clusterThreshold,
   ]);
 
-  // 버텍스 쉐이더 - 바람 효과 + SDF 기반 풀잎
-  const vertexShader = `
-    uniform float time;
-    uniform float windStrength;
-    uniform float yOffset;
-    varying vec2 vUv;
-    varying float vHeight;
-    varying vec3 vPosition;
-    varying vec3 vWorldPosition;
-    
-    void main() {
-      vUv = uv;
-      
-      // 원본 위치 정보
-      vec3 pos = position;
-      vHeight = pos.y / 1.0;
-      
-      // 바람 효과
-      float heightFactor = smoothstep(0.2, 1.0, vHeight);
-      
-      if (heightFactor > 0.0) {
-        vec4 instancePos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-        float windSpeed = time * 1.5;
-        float windOffset = instancePos.x * 0.1 + instancePos.z * 0.1;
-        
-        // 바람 계산
-        float wind = sin(windSpeed + windOffset) * windStrength * heightFactor;
-        wind += cos(windSpeed * 0.7 + windOffset * 1.3) * windStrength * 0.5 * heightFactor;
-        
-        // 바람에 의한 움직임
-        pos.x += wind;
-        pos.z += wind * 0.6;
-      }
-      
-      // 인스턴스 매트릭스 적용
-      vec4 mvPosition = instanceMatrix * vec4(pos, 1.0);
-      
-      // Y 오프셋 적용
-      mvPosition.y += yOffset;
-      
-      vPosition = pos;
-      vWorldPosition = mvPosition.xyz;
-      
-      // 최종 위치 계산
-      gl_Position = projectionMatrix * viewMatrix * mvPosition;
-    } 
-  `;
-
-  // 프래그먼트 쉐이더 - SDF 기반 풀잎 렌더링
-  const proceduralFragmentShader = `
-    uniform vec3 grassColor;
-    uniform float time;
-    varying vec2 vUv;
-    varying float vHeight;
-    varying vec3 vPosition;
-    varying vec3 vWorldPosition;
-    
-    // Hash 함수 - Shadertoy에서 가져옴
-    vec3 hash32(vec2 p) {
-      vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
-      p3 += dot(p3, p3.yxz+33.33);
-      return fract((p3.xxy+p3.yzz)*p3.zyx);
-    }
-    
-    // SDF 유틸리티 함수
-    float opSubtraction(float d1, float d2) { 
-      return max(d1, -d2); 
-    }
-    
-    float sdCircle(vec2 p, float r) {
-      return length(p) - r;
-    }
-    
-    // 2D 풀잎 SDF (Shadertoy에서 가져옴)
-    float sdGrassBlade2d(vec2 p) {
-      float dist = sdCircle(p - vec2(1.7, -1.3), 2.0);
-      dist = opSubtraction(dist, sdCircle(p - vec2(1.7, -1.0), 1.8));
-      dist = opSubtraction(dist, p.y + 1.0);
-      dist = opSubtraction(dist, -p.x + 1.7);
-      return dist;
-    }
-    
-    void main() {
-      // UV 공간을 [-1, 1] 범위로 변환
-      vec2 p = vUv * 2.0 - 1.0;
-      p.x *= 1.2; // 약간 늘림
-      
-      // 풀잎 부분을 SDF로 정의
-      float d = sdGrassBlade2d(p * 2.0); // 스케일 조정
-      
-      // 거리 필드에 따라 알파 계산 - 더 날카로운 경계 생성
-      float edge = 0.03; // 더 작은 값 사용으로 날카로운 경계
-      
-      // 하드 엣지 처리 - 부드러운 단계 대신 보다 분명한 경계
-      float alpha = smoothstep(edge, -edge, d);
-      
-      // 알파 값이 매우 낮으면 완전히 폐기
-      if (alpha < 0.15) discard; // 임계값 높임
-      
-      // 높이에 따른 색상 변화
-      vec3 topColor = grassColor * 1.2;  // 상단 색상 (더 밝게)
-      vec3 bottomColor = grassColor * 0.8;  // 하단 색상 (더 어둡게)
-      vec3 color = mix(bottomColor, topColor, vHeight);
-      
-      // 풀잎에 약간의 질감 추가
-      float windFactor = sin(vWorldPosition.x * 5.0 + time * 2.0) * 0.5 + 0.5;
-      float textureFactor = mix(0.85, 1.0, windFactor * vHeight);
-      color *= textureFactor;
-      
-      // 가장자리 처리 - 경계를 더 명확하게
-      alpha *= smoothstep(1.0, 0.8, abs(p.x));
-      
-      // 알파값을 이진화에 가깝게 처리 - 회색 영역 제거
-      alpha = smoothstep(0.4, 0.6, alpha);
-      
-      gl_FragColor = vec4(color, alpha);
-    }
-  `;
-
-  // 일반 텍스처 기반 프래그먼트 쉐이더
-  const textureFragmentShader = `
-    uniform sampler2D grassTexture; 
-    uniform vec3 grassColor;
-    uniform bool textureTint;
-    varying vec2 vUv;
-    varying float vHeight;
-    
-    void main() {
-      // 텍스처 샘플링
-      vec4 texColor = vec4(1.0); // 텍스처가 없는 경우를 위한 기본값
-      
-      // 텍스처가 있으면 사용
-      #ifdef HAS_TEXTURE
-      texColor = texture2D(grassTexture, vUv);
-      #else
-      // 텍스처 없으면 프로시저럴 마스크 생성
-      vec2 p = vUv * 2.0 - 1.0;
-      float d = 1.0 - length(p);
-      // 더 선명한 마스크 생성
-      texColor.a = smoothstep(0.0, 0.05, d);
-      #endif
-      
-      // 색상 계산
-      vec3 color;
-      if (textureTint) {
-        // 기본 색상에 텍스처를 적용하여 tint 효과
-        vec3 topColor = grassColor * 1.1;
-        vec3 bottomColor = grassColor * 0.9;
-        vec3 tintColor = mix(bottomColor, topColor, vHeight);
-        
-        // 텍스처와 tint 색상 혼합
-        color = texColor.rgb * tintColor;
-      } else {
-        // 풀의 경우 단순히 초록색 적용
-        vec3 topColor = grassColor * 1.1;
-        vec3 bottomColor = grassColor * 0.9;
-        color = mix(bottomColor, topColor, vHeight);
-      }
-      
-      // 알파값 처리 - 알파값 이진화에 가까운 처리
-      float alpha = texColor.a;
-      alpha = smoothstep(0.4, 0.6, alpha);
-      
-      // 임계값 높임
-      if (alpha < 0.15) discard;
-      
-      // 최종 색상
-      gl_FragColor = vec4(color, alpha);
-    }
-  `;
-
   const grassColorObj = useMemo(
     () => new THREE.Color(grassColor),
     [grassColor]
@@ -470,9 +301,7 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
     >
       <shaderMaterial
         vertexShader={vertexShader}
-        fragmentShader={
-          useProcedural ? proceduralFragmentShader : textureFragmentShader
-        }
+        fragmentShader={proceduralFragmentShader}
         uniforms={uniforms}
         transparent={true}
         side={THREE.DoubleSide}
