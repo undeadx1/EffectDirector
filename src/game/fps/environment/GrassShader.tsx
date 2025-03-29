@@ -12,7 +12,6 @@ interface GrassShaderProps {
   grassHeight?: number;
   grassColor?: string;
   windStrength?: number;
-  yOffset?: number;
   clusterFactor?: number;
   useProcedural?: boolean; // 프로시저럴 렌더링 사용 여부
   noiseScale?: number; // 노이즈 스케일 조절 (클러스터 크기 조절)
@@ -24,10 +23,9 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
   terrainDepth,
   terrainHeightFunc,
   grassDensity = 0.1,
-  grassHeight = 1.0,
+  grassHeight = 2.5,
   grassColor = '#ffffff',
   windStrength = 0.15,
-  yOffset = 20.0,
   clusterFactor = 0.7, // 기본값 증가 (0.05 → 0.7)
   useProcedural = true,
   noiseScale = 0.15,
@@ -38,7 +36,7 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
   const initialized = useRef(false);
 
   // 최대 풀 개수 (성능 고려)
-  const MAX_GRASS = 2000000;
+  const MAX_GRASS = 1000000;
   const count = Math.min(
     MAX_GRASS,
     Math.floor(terrainWidth * terrainDepth * grassDensity)
@@ -202,7 +200,7 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
           const angle = Math.random() * (Math.PI * 0.5);
 
           // 스케일 제한: 0.9 - 1.1로 제한
-          const uniformScale = 0.8 + Math.random() * 0.3; // 0.9 ~ 1.1 범위
+          const uniformScale = 0.5 + Math.random() * 0.5; // 0.9 ~ 1.1 범위
 
           // 미세한 기울기 추가
           const tiltAngleX = (Math.random() - 0.5) * 0.5; // X축 기울기
@@ -260,7 +258,6 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
     terrainDepth,
     terrainHeightFunc,
     count,
-    yOffset,
     clusterFactor,
     useProcedural,
     noiseScale,
@@ -278,9 +275,8 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
       time: { value: 0 },
       grassColor: { value: grassColorObj },
       windStrength: { value: windStrength },
-      yOffset: { value: yOffset },
     }),
-    [grassColorObj, windStrength, yOffset]
+    [grassColorObj, windStrength]
   );
 
   // 애니메이션

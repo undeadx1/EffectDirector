@@ -50,10 +50,7 @@ interface TerrainGeneratorProps {
   /** 디버깅 모드 활성화 */
   debug?: boolean;
   /** 생성된 높이맵 함수를 외부로 전달하는 콜백 */
-  onHeightMapReady?: (
-    heightFunc: (x: number, z: number) => number,
-    adjustedPosition: Vector3
-  ) => void;
+  onHeightMapReady?: (heightFunc: (x: number, z: number) => number) => void;
 }
 
 /**
@@ -234,36 +231,15 @@ export const Terrain = memo(
         setTerrainMesh(terrain);
       }, [terrain]);
 
-      // 지형 중심 계산 (물리 엔진용)
-      const adjustedPosition = useMemo(() => {
-        if (terrainMesh) {
-          const boundingBox = new Box3().setFromObject(terrainMesh);
-          const center = new Vector3();
-          boundingBox.getCenter(center);
-
-          if (debug) {
-            console.log(
-              `Terrain bounding box: min(${boundingBox.min.x.toFixed(2)}, ${boundingBox.min.y.toFixed(2)}, ${boundingBox.min.z.toFixed(2)}), max(${boundingBox.max.x.toFixed(2)}, ${boundingBox.max.y.toFixed(2)}, ${boundingBox.max.z.toFixed(2)})`
-            );
-            console.log(
-              `Terrain center: (${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)})`
-            );
-          }
-
-          return new Vector3(-center.x, -center.y, -center.z);
-        }
-        return new Vector3(0, 0, 0);
-      }, [terrainMesh, debug]);
-
       // 높이맵 함수와 위치 정보를 부모 컴포넌트에 전달
       useEffect(() => {
         if (onHeightMapReady) {
-          onHeightMapReady(generateHeightmap, adjustedPosition);
+          onHeightMapReady(generateHeightmap);
         }
-      }, [generateHeightmap, adjustedPosition, onHeightMapReady]);
+      }, [generateHeightmap, onHeightMapReady]);
 
       return (
-        <group position={adjustedPosition} ref={ref}>
+        <group ref={ref}>
           {terrainMesh && (
             <RigidBody
               type="fixed"

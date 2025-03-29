@@ -1,6 +1,5 @@
 uniform float time;
 uniform float windStrength;
-uniform float yOffset;
 varying vec2 vUv;
 varying float vHeight;
 varying vec3 vPosition;
@@ -32,10 +31,7 @@ void main() {
   
   // Apply instance matrix
   vec4 mvPosition = instanceMatrix * vec4(pos, 1.0);
-  
-  // Apply Y offset
-  mvPosition.y += yOffset;
-  
+    
   vPosition = pos;
   vWorldPosition = mvPosition.xyz;
   
