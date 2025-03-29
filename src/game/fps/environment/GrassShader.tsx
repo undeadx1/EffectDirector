@@ -1,7 +1,7 @@
 import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import vertexShader from './terrain/shader/windGrass.vert.glsl';
+import vertexShader from './terrain/shader/grassBlade.vert.glsl';
 import proceduralFragmentShader from './terrain/shader/grassBlade.frag.glsl';
 
 interface GrassShaderProps {
