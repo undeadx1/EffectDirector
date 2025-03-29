@@ -199,14 +199,14 @@ export const GrassShader: React.FC<GrassShaderProps> = ({
           }
 
           // 풀 특성 랜덤화
-          const angle = Math.random() * Math.PI * 2;
+          const angle = Math.random() * (Math.PI * 0.5);
 
           // 스케일 제한: 0.9 - 1.1로 제한
-          const uniformScale = 0.9 + Math.random() * 0.2; // 0.9 ~ 1.1 범위
+          const uniformScale = 0.8 + Math.random() * 0.3; // 0.9 ~ 1.1 범위
 
           // 미세한 기울기 추가
-          const tiltAngleX = (Math.random() - 0.5) * 0.1; // X축 기울기
-          const tiltAngleZ = (Math.random() - 0.5) * 0.1; // Z축 기울기
+          const tiltAngleX = (Math.random() - 0.5) * 0.5; // X축 기울기
+          const tiltAngleZ = (Math.random() - 0.5) * 0.5; // Z축 기울기
 
           // 카메라와의 거리 계산 (간단한 Z 깊이만 고려)
           const distanceToCamera = z + halfDepth; // Z가 클수록 카메라에서 더 멀리 있음

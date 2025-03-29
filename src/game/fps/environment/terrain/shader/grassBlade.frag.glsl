@@ -102,26 +102,27 @@ void main() {
   
   float d = multiGrassBlade(p * 2.0);
   
-  // 훨씬 더 날카로운 엣지
-  float edge = 0.005; // 매우 작은 값으로 설정
-  
-  // 이진 알파(binary alpha)에 가깝게 처리
+  // 기존 엣지 처리 유지
+  float edge = 0.005;
   float alpha = step(0.0, -d + edge);
   
-  // 확실하게 투명한 부분은 즉시 폐기
   if (alpha < 0.9) discard;
   
-  // 색상 계산 부분은 그대로 유지
-  vec3 topColor = grassColor * 1.3;
-  vec3 bottomColor = grassColor * 0.7;
-  vec3 color = mix(bottomColor, topColor, vHeight);
+  // 색상만 수정 - 노란색 상단, 초록색 하단
+  vec3 yellowTop = vec3(0.8, 0.75, 0.3); // 황금색 톤
+  vec3 greenBottom = vec3(0.25, 0.4, 0.15); // 짙은 초록색
   
+  // 일반 높이 기반 그라데이션
+  vec3 color = mix(greenBottom, yellowTop, vHeight);
+  
+  // 바람 효과 유지
   float windFactor = sin(vWorldPosition.x * 5.0 + time * 2.0) * 0.5 + 0.5;
   float textureFactor = mix(0.85, 1.0, windFactor * vHeight);
   color *= textureFactor;
-   
-  // 가장자리 처리도 더 날카롭게
+  
+  // 가장자리 처리 유지
   alpha *= step(0.8, 1.0 - abs(p.x));
   
-  gl_FragColor = vec4(color, 1.0); // 완전 불투명 처리
+  // 불투명 처리 유지
+  gl_FragColor = vec4(color, 1.0);
 }
